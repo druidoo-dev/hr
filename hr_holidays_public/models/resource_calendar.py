@@ -1,5 +1,6 @@
 # Copyright 2017-2018 Tecnativa - Pedro M. Baeza
 # Copyright 2018 Brainbean Apps
+# Copyright 2019 Druidoo - Iván Todorovich
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo import api, models
@@ -23,8 +24,6 @@ class ResourceCalendar(models.Model):
         :param: employee_id: Employee ID. It can be false.
         :return: List of tuples with (start_date, end_date) as elements.
         """
-        HrHolidaysPublic = self.env['hr.holidays.public']
-
         leaves = []
         if start_dt.year != end_dt.year:
             # This fixes the case of leave request asked over 2 years.
@@ -38,23 +37,13 @@ class ResourceCalendar(models.Model):
             end_dt = end_dt.replace(year=end_dt.year+1)
 
         for day in rrule.rrule(rrule.YEARLY, dtstart=start_dt, until=end_dt):
-            lines = HrHolidaysPublic.get_holidays_list(
-                day.year, employee_id=employee_id,
-            )
+            lines = self.env['hr.holidays.public'].get_holidays_list(
+                day.year, employee_id=employee_id)
             for line in lines:
-                leaves.append(
-                    (
-                        datetime.combine(
-                            line.date,
-                            time.min
-                        ).replace(tzinfo=tz),
-                        datetime.combine(
-                            line.date,
-                            time.max
-                        ).replace(tzinfo=tz),
-                        line
-                    ),
-                )
+                leaves.append((
+                    datetime.combine(line.date, time.min).replace(tzinfo=tz),
+                    datetime.combine(line.date, time.max).replace(tzinfo=tz),
+                    line))
         return Intervals(leaves)
 
     @api.multi
@@ -71,7 +60,7 @@ class ResourceCalendar(models.Model):
                 start_dt,
                 end_dt,
                 self.env.context.get('employee_id', False),
-                tz
+                tz,
             )
             res = res | public_holidays
         return res
